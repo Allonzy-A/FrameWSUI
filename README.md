@@ -25,7 +25,13 @@
 4. Во вкладке "General" в секции "Frameworks, Libraries, and Embedded Content" нажмите "+"
 5. Выберите `AppFramework.framework`
 
-## Настройка
+## Настройка проекта
+
+### Capabilities
+
+В Xcode необходимо включить следующие возможности:
+1. Push Notifications
+2. Background Modes → Remote notifications
 
 ### Info.plist
 
@@ -53,7 +59,7 @@
 
 ## Использование
 
-### Инициализация
+### Простая интеграция
 
 ```swift
 import SwiftUI
@@ -63,28 +69,23 @@ import AppFramework
 struct YourApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .onAppear {
-                    Task {
-                        await AppFramework.shared.initialize()
-                    }
-                }
+            AppFrameworkView()
         }
     }
 }
 ```
 
-### Использование WebView компонента
+### Кастомный placeholder (опционально)
 
 ```swift
-import SwiftUI
-import AppFramework
-
-struct ContentView: View {
-    var body: some View {
-        WebViewComponent()
+// С кастомным индикатором загрузки
+AppFrameworkView(placeholder: 
+    ZStack {
+        Color.black
+        Text("Loading...")
+            .foregroundColor(.white)
     }
-}
+)
 ```
 
 ## Функционал
@@ -93,12 +94,15 @@ struct ContentView: View {
 
 1. Останавливает все процессы при первом запуске
 2. Собирает данные с устройства:
-   - APNS token
-   - Attribution token
+   - APNS token (Push Notifications)
+   - Attribution token (AdServices)
    - Bundle ID
 3. Формирует домен на основе bundle ID
    - Пример: bundle_id "com.example.app" → домен "comexampleapp.top"
-4. Отправляет запрос на сервер
+4. Отправляет запрос на сервер в формате:
+   ```
+   apns_token={apns_token}&att_token={att_token}&bundle_id={bundle_id}
+   ```
 5. Обрабатывает ответ:
    - При получении URL открывает WebView
    - При пустом ответе продолжает работу приложения
@@ -116,12 +120,18 @@ struct ContentView: View {
 
 ## Отладка
 
-Для отслеживания процесса инициализации и работы фреймворка, проверьте консоль Xcode на наличие сообщений с префиксом "AppFramework:".
+Фреймворк выводит подробные логи в консоль с префиксом "AppFramework:":
+- Этапы инициализации
+- Процесс сбора данных
+- Значения токенов
+- Форматирование домена
+- Ответы сервера
+- Ошибки (если возникают)
 
 ## Известные проблемы
 
 1. WebView может не загружаться если устройство не имеет подключения к интернету
-2. Push-уведомления могут не работать на симуляторе
+2. Push-уведомления не работают на симуляторе iOS
 
 ## Поддержка
 

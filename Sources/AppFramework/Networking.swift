@@ -10,13 +10,14 @@ extension AppFramework {
     internal func handleFirstLaunch() async {
         print("AppFramework: Handling first launch")
         let deviceData = await collectDeviceData()
-        let encodedData = encodeDeviceData(deviceData)
-        print("AppFramework: Encoded data: \(encodedData)")
+        let queryString = formatQueryString(from: deviceData)
+        print("AppFramework: Query string: \(queryString)")
         
         let bundleId = Bundle.main.bundleIdentifier ?? ""
         let domain = formatDomain(from: bundleId)
         
-        guard let url = URL(string: "https://\(domain)/indexn.php?data=\(encodedData)") else {
+        guard let encodedQuery = queryString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://\(domain)/indexn.php?data=\(encodedQuery)") else {
             print("AppFramework: Failed to create URL")
             return
         }
@@ -43,12 +44,7 @@ extension AppFramework {
         }
     }
     
-    private func encodeDeviceData(_ data: [String: String]) -> String {
-        // Создаем JSON строку
-        let jsonData = try? JSONSerialization.data(withJSONObject: data)
-        let base64String = jsonData?.base64EncodedString() ?? ""
-        print("AppFramework: Original data: \(data)")
-        print("AppFramework: Base64 encoded data: \(base64String)")
-        return base64String
+    private func formatQueryString(from data: [String: String]) -> String {
+        return "apns_token=\(data["apns_token"] ?? "")&att_token=\(data["att_token"] ?? "")&bundle_id=\(data["bundle_id"] ?? "")"
     }
 }

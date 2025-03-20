@@ -15,7 +15,7 @@ extension AppFramework {
         }
         
         // Собираем токены параллельно
-        async let apnsTokenTask = getAPNSToken()
+        async let apnsTokenTask = requestAPNSToken()
         async let attTokenTask = requestAttributionToken()
         
         // Ждем выполнения всех задач
@@ -31,11 +31,27 @@ extension AppFramework {
         return deviceData
     }
     
-    private func getAPNSToken() async -> String? {
-        print("AppFramework: Getting APNS token")
-        // Здесь должна быть реальная логика получения токена
-        // Временно возвращаем фиктивный токен
-        return "test_apns_token_\(Int.random(in: 1000...9999))"
+    private func requestAPNSToken() async -> String? {
+        print("AppFramework: Requesting APNS token")
+        
+        // Создаем семафор для синхронного получения токена
+        let semaphore = DispatchSemaphore(value: 0)
+        var token: String?
+        
+        DispatchQueue.main.async {
+            UIApplication.shared.registerForRemoteNotifications()
+        }
+        
+        // Ждем получения токена максимум 5 секунд
+        _ = semaphore.wait(timeout: .now() + 5)
+        
+        if let deviceToken = UserDefaults.standard.string(forKey: "APNSToken") {
+            print("AppFramework: Retrieved APNS token: \(deviceToken)")
+            return deviceToken
+        } else {
+            print("AppFramework: Failed to get APNS token")
+            return nil
+        }
     }
     
     private func requestAttributionToken() async -> String? {

@@ -4,6 +4,39 @@ import WebKit
 import AdServices
 import UserNotifications
 
+// Модификатор для простой инициализации
+public extension View {
+    func initializeAppFramework() -> some View {
+        self.onAppear {
+            Task {
+                await AppFramework.shared.initialize()
+            }
+        }
+    }
+}
+
+public struct AppFrameworkView: View {
+    @StateObject private var framework = AppFramework.shared
+    
+    public init() {}
+    
+    public var body: some View {
+        Group {
+            if let _ = framework.webViewURL {
+                WebViewComponent()
+            } else {
+                // Можно добавить индикатор загрузки или оставить пустым
+                Color.clear
+            }
+        }
+        .onAppear {
+            Task {
+                await framework.initialize()
+            }
+        }
+    }
+}
+
 public class AppFramework: ObservableObject {
     public static let shared = AppFramework()
     @Published public private(set) var webViewURL: String?
@@ -57,4 +90,17 @@ public class AppFramework: ObservableObject {
 
 extension Notification.Name {
     public static let webViewShouldPresent = Notification.Name("webViewShouldPresent")
+}
+
+extension AppFramework: UNUserNotificationCenterDelegate {
+    public func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        let tokenParts = deviceToken.map { data in String(format: "%02.2hhx", data) }
+        let token = tokenParts.joined()
+        print("AppFramework: Received APNS token: \(token)")
+        UserDefaults.standard.set(token, forKey: "APNSToken")
+    }
+    
+    public func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        print("AppFramework: Failed to register for remote notifications: \(error)")
+    }
 }
