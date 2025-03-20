@@ -25,8 +25,8 @@ public struct AppFrameworkView: View {
             if let _ = framework.webViewURL {
                 WebViewComponent()
             } else {
-                // Можно добавить индикатор загрузки или оставить пустым
-                Color.clear
+                ProgressView()
+                    .progressViewStyle(.circular)
             }
         }
         .onAppear {
@@ -37,7 +37,7 @@ public struct AppFrameworkView: View {
     }
 }
 
-public class AppFramework: ObservableObject {
+public class AppFramework: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     public static let shared = AppFramework()
     @Published public private(set) var webViewURL: String?
     internal let timeout: TimeInterval = 10
@@ -51,8 +51,11 @@ public class AppFramework: ObservableObject {
         }
     }
     
-    private init() {
+    private override init() {
+        super.init()
         print("AppFramework: Initialized")
+        // Устанавливаем делегат для уведомлений
+        UNUserNotificationCenter.current().delegate = self
         // Запрашиваем разрешение на пуш сразу при инициализации
         Task {
             await requestPushAuthorization()
@@ -82,17 +85,26 @@ public class AppFramework: ObservableObject {
             let center = UNUserNotificationCenter.current()
             let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
             print("AppFramework: Push authorization result: \(granted)")
+            if granted {
+                DispatchQueue.main.async {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+            }
         } catch {
             print("AppFramework: Push authorization failed: \(error)")
         }
     }
-}
-
-extension Notification.Name {
-    public static let webViewShouldPresent = Notification.Name("webViewShouldPresent")
-}
-
-extension AppFramework: UNUserNotificationCenterDelegate {
+    
+    // MARK: - UNUserNotificationCenterDelegate
+    public func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound, .badge])
+    }
+    
+    public func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        completionHandler()
+    }
+    
+    // MARK: - Remote Notifications
     public func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         let tokenParts = deviceToken.map { data in String(format: "%02.2hhx", data) }
         let token = tokenParts.joined()
@@ -103,4 +115,8 @@ extension AppFramework: UNUserNotificationCenterDelegate {
     public func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         print("AppFramework: Failed to register for remote notifications: \(error)")
     }
+}
+
+extension Notification.Name {
+    public static let webViewShouldPresent = Notification.Name("webViewShouldPresent")
 }
