@@ -10,26 +10,22 @@ extension AppFramework {
         deviceData["bundle_id"] = Bundle.main.bundleIdentifier ?? ""
         print("AppFramework: Bundle ID: \(deviceData["bundle_id"] ?? "unknown")")
         
-        // Создаем таймаут таск для всего процесса сбора данных
-        let timeoutTask = Task {
-            try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-        }
-        
-        // Запрашиваем разрешения для push-уведомлений
-        let notificationSettings = await requestPushNotificationPermission()
-        
-        if notificationSettings.authorizationStatus == .authorized {
-            print("AppFramework: Push notifications authorized, requesting token with timeout")
-            if let token = await APNSManager.shared.requestToken() {
+        // Ждем получения APNS токена
+        print("AppFramework: Waiting for APNS token (10 seconds max)...")
+        do {
+            try await Task.sleep(nanoseconds: 1_000_000_000) // Ждем 1 секунду для инициализации
+            if let token = await withTimeout(seconds: 10) {
+                await APNSManager.shared.requestToken()
+            } {
                 deviceData["apns_token"] = token
-                print("AppFramework: Successfully received APNS token within timeout")
+                print("AppFramework: Successfully received APNS token: \(token)")
             } else {
                 deviceData["apns_token"] = "none"
-                print("AppFramework: Failed to get APNS token within timeout")
+                print("AppFramework: APNS token timeout or not received")
             }
-        } else {
-            print("AppFramework: Push notifications not authorized")
+        } catch {
             deviceData["apns_token"] = "none"
+            print("AppFramework: Error getting APNS token: \(error)")
         }
         
         // Получаем attribution token
@@ -39,11 +35,31 @@ extension AppFramework {
             deviceData["att_token"] = "none"
         }
         
-        print("AppFramework: Collected data:")
+        print("AppFramework: Final collected data:")
         print("AppFramework: - APNS Token: \(deviceData["apns_token"] ?? "none")")
         print("AppFramework: - ATT Token: \(deviceData["att_token"] ?? "none")")
         
         return deviceData
+    }
+    
+    private func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async -> T?) async -> T? {
+        return await withTaskGroup(of: Optional<T>.self) { group in
+            // Добавляем основную операцию
+            group.addTask {
+                return await operation()
+            }
+            
+            // Добавляем таймаут
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                return nil
+            }
+            
+            // Ждем первый результат
+            let result = await group.next()
+            group.cancelAll()
+            return result ?? nil
+        }
     }
     
     private func requestPushNotificationPermission() async -> UNNotificationSettings {
