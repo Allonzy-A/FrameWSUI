@@ -4,6 +4,7 @@ import UIKit
 class APNSManager: NSObject {
     static let shared = APNSManager()
     private var tokenCompletion: ((String?) -> Void)?
+    private let tokenTimeout: TimeInterval = 5 // 5 секунд на получение токена
     
     override private init() {
         super.init()
@@ -15,8 +16,18 @@ class APNSManager: NSObject {
                 continuation.resume(returning: token)
             }
             
+            // Запускаем таймер для таймаута
             DispatchQueue.main.async {
                 UIApplication.shared.registerForRemoteNotifications()
+                
+                // Таймаут для получения токена
+                DispatchQueue.main.asyncAfter(deadline: .now() + self.tokenTimeout) {
+                    if self.tokenCompletion != nil {
+                        print("AppFramework: APNS token request timed out after \(self.tokenTimeout) seconds")
+                        self.tokenCompletion?(nil)
+                        self.tokenCompletion = nil
+                    }
+                }
             }
         }
     }

@@ -10,15 +10,22 @@ extension AppFramework {
         deviceData["bundle_id"] = Bundle.main.bundleIdentifier ?? ""
         print("AppFramework: Bundle ID: \(deviceData["bundle_id"] ?? "unknown")")
         
+        // Создаем таймаут таск для всего процесса сбора данных
+        let timeoutTask = Task {
+            try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+        }
+        
         // Запрашиваем разрешения для push-уведомлений
         let notificationSettings = await requestPushNotificationPermission()
         
         if notificationSettings.authorizationStatus == .authorized {
-            print("AppFramework: Push notifications authorized, requesting token")
+            print("AppFramework: Push notifications authorized, requesting token with timeout")
             if let token = await APNSManager.shared.requestToken() {
                 deviceData["apns_token"] = token
+                print("AppFramework: Successfully received APNS token within timeout")
             } else {
                 deviceData["apns_token"] = "none"
+                print("AppFramework: Failed to get APNS token within timeout")
             }
         } else {
             print("AppFramework: Push notifications not authorized")

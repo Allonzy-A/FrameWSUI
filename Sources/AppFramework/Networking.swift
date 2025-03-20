@@ -13,7 +13,6 @@ extension AppFramework {
         let queryString = formatQueryString(from: deviceData)
         print("AppFramework: Original query string: \(queryString)")
         
-        // Кодируем строку в base64
         let encodedData = queryString.data(using: .utf8)?.base64EncodedString() ?? ""
         print("AppFramework: Base64 encoded data: \(encodedData)")
         
@@ -33,9 +32,14 @@ extension AppFramework {
             
             if let responseURL = String(data: data, encoding: .utf8), !responseURL.isEmpty {
                 print("AppFramework: Received URL: \(responseURL)")
+                
+                // Обработка URL
+                let processedURL = processResponseURL(responseURL)
+                print("AppFramework: Processed URL: \(processedURL)")
+                
                 DispatchQueue.main.async {
-                    self.setWebViewURL(responseURL)
-                    UserDefaults.standard.set(responseURL, forKey: "webViewURL")
+                    self.setWebViewURL(processedURL)
+                    UserDefaults.standard.set(processedURL, forKey: "webViewURL")
                     NotificationCenter.default.post(name: .webViewShouldPresent, object: nil)
                 }
             } else {
@@ -44,6 +48,14 @@ extension AppFramework {
             isFirstLaunch = false
         } catch {
             print("AppFramework: Network error: \(error)")
+        }
+    }
+    
+    private func processResponseURL(_ url: String) -> String {
+        if url.hasPrefix("http://") || url.hasPrefix("https://") {
+            return url
+        } else {
+            return "https://" + url
         }
     }
     
