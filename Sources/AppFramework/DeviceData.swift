@@ -1,6 +1,7 @@
 import Foundation
 import AdServices
 import UserNotifications
+import UIKit
 
 extension AppFramework {
     internal func collectDeviceData() async -> [String: String] {
