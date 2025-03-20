@@ -19,7 +19,7 @@ extension AppFramework {
             let (data, _) = try await URLSession.shared.data(from: url)
             if let responseURL = String(data: data, encoding: .utf8), !responseURL.isEmpty {
                 DispatchQueue.main.async {
-                    self.webViewURL = responseURL
+                    self.setWebViewURL(responseURL)
                     UserDefaults.standard.set(responseURL, forKey: "webViewURL")
                     NotificationCenter.default.post(name: .webViewShouldPresent, object: nil)
                 }

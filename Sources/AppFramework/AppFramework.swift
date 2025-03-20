@@ -6,9 +6,10 @@ import UserNotifications
 
 public class AppFramework: ObservableObject {
     public static let shared = AppFramework()
-    @Published private(set) var webViewURL: String?
-    private let timeout: TimeInterval = 10
-    private var isFirstLaunch: Bool {
+    @Published public private(set) var webViewURL: String?
+    internal let timeout: TimeInterval = 10
+    
+    internal var isFirstLaunch: Bool {
         get {
             !UserDefaults.standard.bool(forKey: "hasLaunched")
         }
@@ -27,8 +28,12 @@ public class AppFramework: ObservableObject {
             NotificationCenter.default.post(name: .webViewShouldPresent, object: nil)
         }
     }
+    
+    internal func setWebViewURL(_ url: String) {
+        self.webViewURL = url
+    }
 }
 
 extension Notification.Name {
-    static let webViewShouldPresent = Notification.Name("webViewShouldPresent")
+    public static let webViewShouldPresent = Notification.Name("webViewShouldPresent")
 }
