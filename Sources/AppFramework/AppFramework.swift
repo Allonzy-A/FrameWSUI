@@ -18,19 +18,40 @@ public class AppFramework: ObservableObject {
         }
     }
     
-    private init() {}
+    private init() {
+        print("AppFramework: Initialized")
+        // Запрашиваем разрешение на пуш сразу при инициализации
+        Task {
+            await requestPushAuthorization()
+        }
+    }
     
     public func initialize() async {
+        print("AppFramework: Starting initialization")
         if isFirstLaunch {
+            print("AppFramework: First launch detected")
             await handleFirstLaunch()
         } else if let savedURL = UserDefaults.standard.string(forKey: "webViewURL") {
+            print("AppFramework: Using saved URL: \(savedURL)")
             self.webViewURL = savedURL
             NotificationCenter.default.post(name: .webViewShouldPresent, object: nil)
         }
     }
     
     internal func setWebViewURL(_ url: String) {
+        print("AppFramework: Setting WebView URL: \(url)")
         self.webViewURL = url
+    }
+    
+    private func requestPushAuthorization() async {
+        print("AppFramework: Requesting push notifications authorization")
+        do {
+            let center = UNUserNotificationCenter.current()
+            let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
+            print("AppFramework: Push authorization result: \(granted)")
+        } catch {
+            print("AppFramework: Push authorization failed: \(error)")
+        }
     }
 }
 

@@ -4,8 +4,10 @@ import UserNotifications
 
 extension AppFramework {
     internal func collectDeviceData() async -> [String: String] {
+        print("AppFramework: Starting device data collection")
         var deviceData: [String: String] = [:]
         deviceData["bundle_id"] = Bundle.main.bundleIdentifier ?? ""
+        print("AppFramework: Bundle ID: \(deviceData["bundle_id"] ?? "unknown")")
         
         // Создаем таймаут таск
         let timeoutTask = Task {
@@ -13,7 +15,7 @@ extension AppFramework {
         }
         
         // Собираем токены параллельно
-        async let apnsTokenTask = requestPushNotifications()
+        async let apnsTokenTask = getAPNSToken()
         async let attTokenTask = requestAttributionToken()
         
         // Ждем выполнения всех задач
@@ -22,30 +24,33 @@ extension AppFramework {
         deviceData["apns_token"] = apnsToken ?? "none"
         deviceData["att_token"] = attToken ?? "none"
         
+        print("AppFramework: Collected data:")
+        print("AppFramework: - APNS Token: \(deviceData["apns_token"] ?? "none")")
+        print("AppFramework: - ATT Token: \(deviceData["att_token"] ?? "none")")
+        
         return deviceData
     }
     
-    private func requestPushNotifications() async -> String? {
-        do {
-            let center = UNUserNotificationCenter.current()
-            let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
-            return granted ? "test_token" : nil
-        } catch {
-            print("Push notification authorization failed: \(error)")
-            return nil
-        }
+    private func getAPNSToken() async -> String? {
+        print("AppFramework: Getting APNS token")
+        // Здесь должна быть реальная логика получения токена
+        // Временно возвращаем фиктивный токен
+        return "test_apns_token_\(Int.random(in: 1000...9999))"
     }
     
     private func requestAttributionToken() async -> String? {
+        print("AppFramework: Requesting attribution token")
         if #available(iOS 14.3, *) {
             do {
                 let token = try await AAAttribution.attributionToken()
+                print("AppFramework: Attribution token received")
                 return token
             } catch {
-                print("Failed to get attribution token: \(error)")
+                print("AppFramework: Failed to get attribution token: \(error)")
                 return nil
             }
         }
+        print("AppFramework: Device doesn't support attribution token")
         return nil
     }
 }
