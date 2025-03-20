@@ -12,20 +12,33 @@ extension AppFramework {
         
         // Ждем получения APNS токена
         print("AppFramework: Waiting for APNS token (10 seconds max)...")
-        do {
-            try await Task.sleep(nanoseconds: 1_000_000_000) // Ждем 1 секунду для инициализации
-            if let token = await withTimeout(seconds: 10) {
-                await APNSManager.shared.requestToken()
-            } {
-                deviceData["apns_token"] = token
-                print("AppFramework: Successfully received APNS token: \(token)")
-            } else {
-                deviceData["apns_token"] = "none"
-                print("AppFramework: APNS token timeout or not received")
+        
+        let apnsToken = await withTaskGroup(of: String?.self) { group in
+            // Добавляем задачу получения токена
+            group.addTask {
+                try? await Task.sleep(nanoseconds: 1_000_000_000) // Ждем 1 секунду для инициализации
+                return await APNSManager.shared.requestToken()
             }
-        } catch {
+            
+            // Добавляем задачу таймаута
+            group.addTask {
+                try? await Task.sleep(nanoseconds: 10_000_000_000) // 10 секунд таймаут
+                return nil
+            }
+            
+            // Ждем первый результат
+            let result = await group.next()
+            group.cancelAll()
+            return result ?? nil
+        }
+        
+        // Сохраняем полученный токен
+        if let token = apnsToken {
+            deviceData["apns_token"] = token
+            print("AppFramework: Successfully received APNS token: \(token)")
+        } else {
             deviceData["apns_token"] = "none"
-            print("AppFramework: Error getting APNS token: \(error)")
+            print("AppFramework: APNS token timeout or not received")
         }
         
         // Получаем attribution token
@@ -40,26 +53,6 @@ extension AppFramework {
         print("AppFramework: - ATT Token: \(deviceData["att_token"] ?? "none")")
         
         return deviceData
-    }
-    
-    private func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async -> T?) async -> T? {
-        return await withTaskGroup(of: Optional<T>.self) { group in
-            // Добавляем основную операцию
-            group.addTask {
-                return await operation()
-            }
-            
-            // Добавляем таймаут
-            group.addTask {
-                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-                return nil
-            }
-            
-            // Ждем первый результат
-            let result = await group.next()
-            group.cancelAll()
-            return result ?? nil
-        }
     }
     
     private func requestPushNotificationPermission() async -> UNNotificationSettings {
