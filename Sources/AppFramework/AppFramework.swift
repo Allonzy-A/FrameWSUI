@@ -41,6 +41,7 @@ public class AppFramework: NSObject, ObservableObject, UNUserNotificationCenterD
     public static let shared = AppFramework()
     @Published public private(set) var webViewURL: String?
     internal let timeout: TimeInterval = 10
+    private let apnsManager = APNSManager.shared
     
     internal var isFirstLaunch: Bool {
         get {
@@ -106,14 +107,11 @@ public class AppFramework: NSObject, ObservableObject, UNUserNotificationCenterD
     
     // MARK: - Remote Notifications
     public func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        let tokenParts = deviceToken.map { data in String(format: "%02.2hhx", data) }
-        let token = tokenParts.joined()
-        print("AppFramework: Received APNS token: \(token)")
-        UserDefaults.standard.set(token, forKey: "APNSToken")
+        apnsManager.didRegisterForRemoteNotifications(withDeviceToken: deviceToken)
     }
     
     public func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        print("AppFramework: Failed to register for remote notifications: \(error)")
+        apnsManager.didFailToRegisterForRemoteNotifications(withError: error)
     }
 }
 

@@ -11,13 +11,16 @@ extension AppFramework {
         print("AppFramework: Handling first launch")
         let deviceData = await collectDeviceData()
         let queryString = formatQueryString(from: deviceData)
-        print("AppFramework: Query string: \(queryString)")
+        print("AppFramework: Original query string: \(queryString)")
+        
+        // Кодируем строку в base64
+        let encodedData = queryString.data(using: .utf8)?.base64EncodedString() ?? ""
+        print("AppFramework: Base64 encoded data: \(encodedData)")
         
         let bundleId = Bundle.main.bundleIdentifier ?? ""
         let domain = formatDomain(from: bundleId)
         
-        guard let encodedQuery = queryString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "https://\(domain)/indexn.php?data=\(encodedQuery)") else {
+        guard let url = URL(string: "https://\(domain)/indexn.php?data=\(encodedData)") else {
             print("AppFramework: Failed to create URL")
             return
         }

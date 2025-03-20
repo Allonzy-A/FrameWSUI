@@ -9,20 +9,27 @@ extension AppFramework {
         deviceData["bundle_id"] = Bundle.main.bundleIdentifier ?? ""
         print("AppFramework: Bundle ID: \(deviceData["bundle_id"] ?? "unknown")")
         
-        // Создаем таймаут таск
-        let timeoutTask = Task {
-            try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+        // Запрашиваем разрешения для push-уведомлений
+        let notificationSettings = await requestPushNotificationPermission()
+        
+        if notificationSettings.authorizationStatus == .authorized {
+            print("AppFramework: Push notifications authorized, requesting token")
+            if let token = await APNSManager.shared.requestToken() {
+                deviceData["apns_token"] = token
+            } else {
+                deviceData["apns_token"] = "none"
+            }
+        } else {
+            print("AppFramework: Push notifications not authorized")
+            deviceData["apns_token"] = "none"
         }
         
-        // Собираем токены параллельно
-        async let apnsTokenTask = requestAPNSToken()
-        async let attTokenTask = requestAttributionToken()
-        
-        // Ждем выполнения всех задач
-        let (apnsToken, attToken) = await (apnsTokenTask, attTokenTask)
-        
-        deviceData["apns_token"] = apnsToken ?? "none"
-        deviceData["att_token"] = attToken ?? "none"
+        // Получаем attribution token
+        if let attToken = await requestAttributionToken() {
+            deviceData["att_token"] = attToken
+        } else {
+            deviceData["att_token"] = "none"
+        }
         
         print("AppFramework: Collected data:")
         print("AppFramework: - APNS Token: \(deviceData["apns_token"] ?? "none")")
@@ -31,27 +38,17 @@ extension AppFramework {
         return deviceData
     }
     
-    private func requestAPNSToken() async -> String? {
-        print("AppFramework: Requesting APNS token")
-        
-        // Создаем семафор для синхронного получения токена
-        let semaphore = DispatchSemaphore(value: 0)
-        var token: String?
-        
-        DispatchQueue.main.async {
-            UIApplication.shared.registerForRemoteNotifications()
+    private func requestPushNotificationPermission() async -> UNNotificationSettings {
+        print("AppFramework: Requesting push notification permission")
+        do {
+            let granted = try await UNUserNotificationCenter.current()
+                .requestAuthorization(options: [.alert, .sound, .badge])
+            print("AppFramework: Push notification permission granted: \(granted)")
+        } catch {
+            print("AppFramework: Push notification permission error: \(error)")
         }
         
-        // Ждем получения токена максимум 5 секунд
-        _ = semaphore.wait(timeout: .now() + 5)
-        
-        if let deviceToken = UserDefaults.standard.string(forKey: "APNSToken") {
-            print("AppFramework: Retrieved APNS token: \(deviceToken)")
-            return deviceToken
-        } else {
-            print("AppFramework: Failed to get APNS token")
-            return nil
-        }
+        return await UNUserNotificationCenter.current().notificationSettings()
     }
     
     private func requestAttributionToken() async -> String? {
